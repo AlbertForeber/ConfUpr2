@@ -1,0 +1,6 @@
+name,example
+path,https//example.com
+data_mode,url
+version,1.0.0
+show_ascii,true
+filter,example_filter
