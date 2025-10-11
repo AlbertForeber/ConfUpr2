@@ -2,12 +2,14 @@ import csv
 import os
 from errors import *
 from extras import ERROR, DEBUG, EXTRA
+from graph_builder import GraphBuilder
+
 
 class DependencyTool:
     def __init__(self):
 
         self.__CONFIG_FILE_NAME = "config.csv"
-        self.__params = {
+        self.params = {
             "name": "",
             "path": "",
             "data_mode": "",    # url or test
@@ -24,13 +26,7 @@ class DependencyTool:
         try:
             self.__load_config()
 
-            # TODO убрать после первого этапа
-            print('-' * 40)
-            print(DEBUG.format(f"Received arguments:"))
-            for key in self.__params:
-                print(f"+{DEBUG.format(key):>25}: {EXTRA.format(self.__params[key])}")
-            print('-' * 40)
-            #
+
 
 
         except ConfigException as e:
@@ -51,23 +47,23 @@ class DependencyTool:
         fields_checked = []
 
         for field, content in reader:
-            if field not in self.__params:
+            if field not in self.params:
                 raise ConfigUnexpectedField(self.__CONFIG_FILE_NAME, field)
 
-            if not self.check_field_content(field, content):
+            if not self.__check_field_content(field, content):
                 raise ConfigUnexpectedContent(field, content, *self.__allowed_contents[field])
 
-            self.__params[field] = content
+            self.params[field] = content
             fields_checked.append(field)
 
         len_fields_checked = len(set(fields_checked))
-        expected_fields_checked = len(self.__params)
+        expected_fields_checked = len(self.params)
 
         if len_fields_checked != expected_fields_checked:
             raise ConfigUnexpectedFieldsAmount(self.__CONFIG_FILE_NAME, len_fields_checked, expected_fields_checked)
 
 
-    def check_field_content(self, field, content):
+    def __check_field_content(self, field, content):
         if field not in self.__allowed_contents:
             return True
 
@@ -76,3 +72,5 @@ class DependencyTool:
 
 if __name__ == "__main__":
     dep = DependencyTool()
+    grg = GraphBuilder(dep.params)
+    grg.print_one_layer_graph()

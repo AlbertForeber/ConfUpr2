@@ -1,6 +1,6 @@
 name,example
-path,https//example.com
+path,https//Serilog
 data_mode,url
-version,1.0.0
+version,2.2.1
 show_ascii,true
 filter,example_filter
