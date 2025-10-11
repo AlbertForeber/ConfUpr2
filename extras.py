@@ -1,0 +1,3 @@
+ERROR = "\033[31m{}\033[0m"             # RED
+DEBUG = "\033[33;1m{}\033[0m"           # YELLOW
+EXTRA = "\033[34m{}\033[0m"             # BLUE
