@@ -1,6 +1,6 @@
 name,example
-path,https//Serilog
-data_mode,url
+path,test
+data_mode,test
 version,2.2.1
 show_ascii,true
-filter,example_filter
+filter,arp

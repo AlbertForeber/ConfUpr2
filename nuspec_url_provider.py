@@ -12,7 +12,12 @@ class NuspecUrlProvider:
         package = package.lower()
 
         res = httpx.get(f"{self.__id}/{package}/{version}/{package}.nuspec")
+        print(f"{self.__id}/{package}/{version}/{package}.nuspec")
+        print(res.status_code)
+
         res.raise_for_status()
+        print()
+
 
         with open(filename, 'wb') as file:
             file.write(res.content)

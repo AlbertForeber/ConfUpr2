@@ -5,11 +5,14 @@ from nuspec_url_provider import NuspecUrlProvider
 import xml.etree.ElementTree as ET
 
 
-def parse_dependencies(root: ET.Element):
+def parse_dependencies_from_nuspec(root: ET.Element):
     ns = {'ns': root.tag.split("}")[0][1:]}
 
     deps: List[ET.Element] = []
     visited = set()
+
+    if not root.find("ns:metadata", ns).find("ns:dependencies", ns):
+        return deps
 
     for i in (root
             .find("ns:metadata", ns)
@@ -25,6 +28,12 @@ def parse_dependencies(root: ET.Element):
     return deps
 
 
+def from_xml_element_to_tuple(element: ET.Element) -> Tuple:
+    return (
+        element.get("id", "unknown_id"),
+        element.get("version", "_unknown_version_").strip('[').strip(')').split(',')[0]
+    )
+
 class GraphBuilder:
     def __init__(self, config: Dict):
         self.__test = config["data_mode"] == "test"
@@ -32,67 +41,81 @@ class GraphBuilder:
         self.__version = config['version']
         self.__filter = config['filter']
 
-        self.graph: Dict[Tuple, List[Tuple]] = {}
-
-    # TODO удалить после второго этапа
-    def print_one_layer_graph(self):
-        graph = self.__build_one_layer_graph_from_nuspec()
-        print()
-        print("-" * 40)
-
-        print("Dependencies:")
-        for package in graph:
-            print(DEBUG.format(package[0]))
-            for dep in graph[package]:
-                print(f"+ {EXTRA.format(dep[0])}")
+        self.__graph: Dict[Tuple, List[Tuple]] = {}
 
 
     def __build_one_layer_graph_from_nuspec(self) -> Dict:
         provider = NuspecUrlProvider()
 
         root = provider.generate_nuspec(self.__package_id.lower(), self.__version)
-        deps = parse_dependencies(root)
+        deps = parse_dependencies_from_nuspec(root)
 
-        self.graph[(self.__package_id, self.__version)] = list()
-        head = self.graph[(self.__package_id, self.__version)]
+        self.__graph[(self.__package_id, self.__version)] = list()
+        head = self.__graph[(self.__package_id, self.__version)]
 
 
         for dep in deps:
             head.append(
-                (
-                    dep.get("id", "unknown_id"),
-                    dep.get("version", "_unknown_version_")[1:-1].split(',')[0]
-                )
+                from_xml_element_to_tuple(dep)
             )
 
-        return self.graph
+        return self.__graph
 
 
 
     def build_graph(self, one_layer: bool = False) -> Dict:
+
+        self.__graph = dict()
+
         if one_layer:
             graph = self.__build_one_layer_graph_from_nuspec()
         else:
-            graph = self.__build_graph_from_nuspec() if self.__test else self.__build_graph_from_test()
+            graph = self.__build_graph_from_nuspec() if not self.__test else self.__build_graph_from_test()
         return graph
 
 
     def __build_graph_from_nuspec(self) -> Dict:
         provider = NuspecUrlProvider()
 
-        package_id = self.__config['path'].split('/')[-1]
-        root = provider.generate_nuspec(package_id.lower(), self.__version)
-
-        ns = {'ns': root.tag.split("}")[0][1:]}
-
         visited = set()
-        bfs = []
+        bfs = [(self.__package_id, self.__version)]
+
+        for package in bfs:
+
+            print(EXTRA.format(package[0]))
+            print(DEBUG.format(*package))
+
+            root = provider.generate_nuspec(*package)
+            visited.add(package)
+
+            deps = parse_dependencies_from_nuspec(root)
 
 
+            self.__graph[package] = []
+
+            for dep in deps:
+                dep_tuple = from_xml_element_to_tuple(dep)
+                if (dep_tuple not in visited) and (self.__filter not in dep_tuple[0]):
+                    bfs.append(dep_tuple)
+                    self.__graph[package].append(dep_tuple)
+
+        print(self.__graph)
 
 
 
 
 
     def __build_graph_from_test(self) -> Dict:
-        pass
+        try:
+            f = open(self.__package_id)
+            for line in f:
+                split_line = line.split(':')
+                package_name, deps = split_line[0], split_line[1].split(',')
+                self.__graph[(package_name, "1.0.0")] = [(x, "1.0.0") for x in deps]
+
+                print(f"{DEBUG.format(package_name)}:", ",".join(deps), end='')
+            print()
+
+            return self.__graph
+        except:
+            raise FileNotFoundError

@@ -71,4 +71,4 @@ class DependencyTool:
 if __name__ == "__main__":
     dep = DependencyTool()
     grg = GraphBuilder(dep.params)
-    grg.print_one_layer_graph()
+    grg.build_graph()
