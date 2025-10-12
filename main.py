@@ -27,8 +27,6 @@ class DependencyTool:
             self.__load_config()
 
 
-
-
         except ConfigException as e:
             print(ERROR.format(e))
             exit(1)

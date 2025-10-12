@@ -1,66 +1,75 @@
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from extras import DEBUG, EXTRA
-from graph_node import GraphNode
 from nuspec_url_provider import NuspecUrlProvider
 import xml.etree.ElementTree as ET
+
+
+def parse_dependencies(root: ET.Element):
+    ns = {'ns': root.tag.split("}")[0][1:]}
+
+    deps: List[ET.Element] = []
+    visited = set()
+
+    for i in (root
+            .find("ns:metadata", ns)
+            .find("ns:dependencies", ns)
+            .findall("ns:group", ns)):
+
+        for j in i.findall("*"):
+            to_check = ' '.join([j.get("id"), j.get("version")])
+            if to_check not in visited:
+                visited.add(to_check)
+                deps.append(j)
+
+    return deps
 
 
 class GraphBuilder:
     def __init__(self, config: Dict):
         self.__test = config["data_mode"] == "test"
-        self.__graph = {}
-        self.__config = config
+        self.__package_id = config['path'].split('/')[-1]
+        self.__version = config['version']
+        self.__filter = config['filter']
 
+        self.graph: Dict[Tuple, List[Tuple]] = {}
 
     # TODO удалить после второго этапа
     def print_one_layer_graph(self):
         graph = self.__build_one_layer_graph_from_nuspec()
         print()
         print("-" * 40)
-        print(DEBUG.format(graph.name))
+
         print("Dependencies:")
-        for i in graph.dependencies:
-            print(f"+ {EXTRA.format(i.name)}")
+        for package in graph:
+            print(DEBUG.format(package[0]))
+            for dep in graph[package]:
+                print(f"+ {EXTRA.format(dep[0])}")
 
 
-    def __build_one_layer_graph_from_nuspec(self):
+    def __build_one_layer_graph_from_nuspec(self) -> Dict:
         provider = NuspecUrlProvider()
 
-        package_id = self.__config['path'].split('/')[-1]
-        filename = provider.generate_nuspec(package_id.lower(), self.__config['version'])
+        root = provider.generate_nuspec(self.__package_id.lower(), self.__version)
+        deps = parse_dependencies(root)
 
-        try:
-            tree = ET.parse(filename)
-        except ET.ParseError:
-            raise ET.ParseError()
+        self.graph[(self.__package_id, self.__version)] = list()
+        head = self.graph[(self.__package_id, self.__version)]
 
-        root = tree.getroot()
-        ns = {'ns': root.tag.split("}")[0][1:]}
-
-        deps: List[ET.Element] = []
-
-        for i in (tree.getroot()
-                .find("ns:metadata", ns)
-                .find("ns:dependencies", ns)
-                .findall("ns:group", ns)):
-            deps += i.findall("*")
-
-        graph_node = GraphNode(package_id, self.__config["version"])
 
         for dep in deps:
-            new_node = GraphNode(
+            head.append(
+                (
                     dep.get("id", "unknown_id"),
                     dep.get("version", "_unknown_version_")[1:-1].split(',')[0]
                 )
+            )
 
-            if new_node not in graph_node.dependencies:
-                graph_node.dependencies.append(new_node)
-        return graph_node
-
+        return self.graph
 
 
-    def build_graph(self, one_layer: bool = False) -> GraphNode:
+
+    def build_graph(self, one_layer: bool = False) -> Dict:
         if one_layer:
             graph = self.__build_one_layer_graph_from_nuspec()
         else:
@@ -68,9 +77,22 @@ class GraphBuilder:
         return graph
 
 
-    def __build_graph_from_nuspec(self) -> GraphNode:
-        pass
+    def __build_graph_from_nuspec(self) -> Dict:
+        provider = NuspecUrlProvider()
+
+        package_id = self.__config['path'].split('/')[-1]
+        root = provider.generate_nuspec(package_id.lower(), self.__version)
+
+        ns = {'ns': root.tag.split("}")[0][1:]}
+
+        visited = set()
+        bfs = []
 
 
-    def __build_graph_from_test(self) -> GraphNode:
+
+
+
+
+
+    def __build_graph_from_test(self) -> Dict:
         pass

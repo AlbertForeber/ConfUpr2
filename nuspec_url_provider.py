@@ -1,4 +1,5 @@
 import httpx
+import xml.etree.ElementTree as ET
 
 
 class NuspecUrlProvider:
@@ -6,7 +7,7 @@ class NuspecUrlProvider:
         self.__id = "https://api.nuget.org/v3-flatcontainer"
 
 
-    def generate_nuspec(self, package: str, version: str) -> str:
+    def generate_nuspec(self, package: str, version: str) -> ET.Element:
         filename = "temp.nuspec"
         package = package.lower()
 
@@ -16,4 +17,9 @@ class NuspecUrlProvider:
         with open(filename, 'wb') as file:
             file.write(res.content)
 
-        return filename
+        try:
+            tree = ET.parse(filename)
+        except ET.ParseError:
+            raise ET.ParseError()
+
+        return tree.getroot()
