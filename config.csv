@@ -2,5 +2,5 @@ name,Serilog
 path,https://api.nuget.org/v3-flatcontainer
 data_mode,url
 version,2.2.1
-show_ascii,true
+show_ascii,false
 filter,arp

@@ -1,5 +1,6 @@
+from http.client import HTTPException
 from typing import Dict, List, Tuple
-
+from errors import *
 from extras import DEBUG, EXTRA
 from nuspec_url_provider import NuspecUrlProvider
 import xml.etree.ElementTree as ET
@@ -11,21 +12,24 @@ def parse_dependencies_from_nuspec(root: ET.Element):
     deps: List[ET.Element] = []
     visited = set()
 
-    if not root.find("ns:metadata", ns).find("ns:dependencies", ns):
+    try:
+        if not root.find("ns:metadata", ns).find("ns:dependencies", ns):
+            return deps
+
+        for i in (root
+                .find("ns:metadata", ns)
+                .find("ns:dependencies", ns)
+                .findall("ns:group", ns)):
+
+            for j in i.findall("*"):
+                to_check = ' '.join([j.get("id"), j.get("version")])
+                if to_check not in visited:
+                    visited.add(to_check)
+                    deps.append(j)
+
         return deps
-
-    for i in (root
-            .find("ns:metadata", ns)
-            .find("ns:dependencies", ns)
-            .findall("ns:group", ns)):
-
-        for j in i.findall("*"):
-            to_check = ' '.join([j.get("id"), j.get("version")])
-            if to_check not in visited:
-                visited.add(to_check)
-                deps.append(j)
-
-    return deps
+    except ET.ParseError:
+        raise GBParseError
 
 
 def from_xml_element_to_tuple(element: ET.Element) -> Tuple:
@@ -48,7 +52,11 @@ class GraphBuilder:
     def __build_one_layer_graph_from_nuspec(self) -> Dict:
         provider = NuspecUrlProvider(self.__path)
 
-        root = provider.generate_nuspec(self.__package_id.lower(), self.__version)
+        try:
+            root = provider.generate_nuspec(self.__package_id.lower(), self.__version)
+        except:
+            raise GBNuspecError
+
         deps = parse_dependencies_from_nuspec(root)
 
         self.__graph[(self.__package_id, self.__version)] = list()
@@ -69,13 +77,13 @@ class GraphBuilder:
         self.__graph = dict()
 
         if one_layer:
-            graph = self.__build_one_layer_graph_from_nuspec()
+            self.__build_one_layer_graph_from_nuspec()
         else:
-            graph = self.__build_graph_from_nuspec() if not self.__test else self.__build_graph_from_test()
-        return graph
+            self.__build_graph_from_nuspec() if not self.__test else self.__build_graph_from_test()
+        return self.__graph
 
 
-    def __build_graph_from_nuspec(self) -> Dict:
+    def __build_graph_from_nuspec(self):
         provider = NuspecUrlProvider()
 
         visited = set()
@@ -85,7 +93,11 @@ class GraphBuilder:
 
             print(EXTRA.format(package[0]))
 
-            root = provider.generate_nuspec(*package)
+            try:
+                root = provider.generate_nuspec(*package)
+            except:
+                raise GBNuspecError
+
             visited.add(package)
 
             deps = parse_dependencies_from_nuspec(root)
@@ -100,12 +112,11 @@ class GraphBuilder:
                     self.__graph[package].append(dep_tuple)
 
 
-
-    def __build_graph_from_test(self) -> Dict:
+    def __build_graph_from_test(self):
         try:
             f = open(self.__path)
-        except:
-            raise FileNotFoundError
+        except FileNotFoundError:
+            raise GBFileNotFound
 
         for line in f:
             split_line = line.strip().split(':')
@@ -113,9 +124,6 @@ class GraphBuilder:
             self.__graph[(package_name, "1.0.0")] = [(x.strip(), "1.0.0") for x in deps]
 
             print(f"{DEBUG.format(package_name)}:", ",".join(deps))
-
-        return self.__graph
-
 
 
     def get_dependent_of(self, package_name: str, package_version: str) -> List:

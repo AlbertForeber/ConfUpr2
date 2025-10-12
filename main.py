@@ -3,13 +3,14 @@ import os
 from errors import *
 from extras import ERROR, DEBUG, EXTRA
 from graph_builder import GraphBuilder
+from visualizer import Visualizer
 
 
 class DependencyTool:
     def __init__(self):
 
         self.__CONFIG_FILE_NAME = "config.csv"
-        self.params = {
+        self.__params = {
             "name": "",
             "path": "",
             "data_mode": "",    # url or test
@@ -26,8 +27,15 @@ class DependencyTool:
         try:
             self.__load_config()
 
-
         except ConfigException as e:
+            print(ERROR.format(e))
+            exit(1)
+
+        self.__gb: GraphBuilder = GraphBuilder(dep.__params)
+
+        try:
+            self.__vis: Visualizer = Visualizer(self.__gb.build_graph())
+        except GraphBuilderException as e:
             print(ERROR.format(e))
             exit(1)
 
@@ -45,17 +53,17 @@ class DependencyTool:
         fields_checked = []
 
         for field, content in reader:
-            if field not in self.params:
+            if field not in self.__params:
                 raise ConfigUnexpectedField(self.__CONFIG_FILE_NAME, field)
 
             if not self.__check_field_content(field, content):
                 raise ConfigUnexpectedContent(field, content, *self.__allowed_contents[field])
 
-            self.params[field] = content
+            self.__params[field] = content
             fields_checked.append(field)
 
         len_fields_checked = len(set(fields_checked))
-        expected_fields_checked = len(self.params)
+        expected_fields_checked = len(self.__params)
 
         if len_fields_checked != expected_fields_checked:
             raise ConfigUnexpectedFieldsAmount(self.__CONFIG_FILE_NAME, len_fields_checked, expected_fields_checked)
@@ -68,8 +76,9 @@ class DependencyTool:
         return False if content not in self.__allowed_contents[field] else True
 
 
+    def start_up(self):
+        ...
+
 if __name__ == "__main__":
     dep = DependencyTool()
-    grg = GraphBuilder(dep.params)
-    grg.build_graph()
-    print(grg.get_dependent_of("B", "1.0.0"))
+    dep.start_up()
