@@ -1,6 +1,6 @@
-name,example
-path,test
-data_mode,test
+name,Serilog
+path,https://api.nuget.org/v3-flatcontainer
+data_mode,url
 version,2.2.1
 show_ascii,true
 filter,arp

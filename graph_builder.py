@@ -37,7 +37,8 @@ def from_xml_element_to_tuple(element: ET.Element) -> Tuple:
 class GraphBuilder:
     def __init__(self, config: Dict):
         self.__test = config["data_mode"] == "test"
-        self.__package_id = config['path'].split('/')[-1]
+        self.__path= config['path']
+        self.__package_id = config["name"]
         self.__version = config['version']
         self.__filter = config['filter']
 
@@ -45,7 +46,7 @@ class GraphBuilder:
 
 
     def __build_one_layer_graph_from_nuspec(self) -> Dict:
-        provider = NuspecUrlProvider()
+        provider = NuspecUrlProvider(self.__path)
 
         root = provider.generate_nuspec(self.__package_id.lower(), self.__version)
         deps = parse_dependencies_from_nuspec(root)
@@ -83,7 +84,6 @@ class GraphBuilder:
         for package in bfs:
 
             print(EXTRA.format(package[0]))
-            print(DEBUG.format(*package))
 
             root = provider.generate_nuspec(*package)
             visited.add(package)
@@ -99,23 +99,25 @@ class GraphBuilder:
                     bfs.append(dep_tuple)
                     self.__graph[package].append(dep_tuple)
 
-        print(self.__graph)
-
-
-
 
 
     def __build_graph_from_test(self) -> Dict:
         try:
-            f = open(self.__package_id)
-            for line in f:
-                split_line = line.split(':')
-                package_name, deps = split_line[0], split_line[1].split(',')
-                self.__graph[(package_name, "1.0.0")] = [(x, "1.0.0") for x in deps]
-
-                print(f"{DEBUG.format(package_name)}:", ",".join(deps), end='')
-            print()
-
-            return self.__graph
+            f = open(self.__path)
         except:
             raise FileNotFoundError
+
+        for line in f:
+            split_line = line.strip().split(':')
+            package_name, deps = split_line[0], split_line[1].split(',')
+            self.__graph[(package_name, "1.0.0")] = [(x.strip(), "1.0.0") for x in deps]
+
+            print(f"{DEBUG.format(package_name)}:", ",".join(deps))
+
+        return self.__graph
+
+
+
+    def get_dependent_of(self, package_name: str, package_version: str) -> List:
+        return [x for x in self.__graph if (package_name, package_version) in self.__graph[x]]
+

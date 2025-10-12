@@ -72,3 +72,4 @@ if __name__ == "__main__":
     dep = DependencyTool()
     grg = GraphBuilder(dep.params)
     grg.build_graph()
+    print(grg.get_dependent_of("B", "1.0.0"))
